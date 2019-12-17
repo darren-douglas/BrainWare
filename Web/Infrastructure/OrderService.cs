@@ -27,8 +27,13 @@ namespace Web.Infrastructure
                 connection.init();
 
                 // Get the orders
-                var sql = "SELECT c.name, o.description, o.order_id FROM company c INNER JOIN [order] o on c.company_id=o.company_id";
-                SqlDataReader reader = (SqlDataReader)connection.ExecuteReader(sql);
+                var args = new Dictionary<string, string>
+                {
+                    { COLUMN_ORDER_NAME, CompanyId.ToString()}
+                };
+
+                var sql = "SELECT c.name, o.description, o.order_id FROM company c INNER JOIN [order] o on c.company_id=o.company_id WHERE c.company_id = @name";
+                SqlDataReader reader = (SqlDataReader)connection.ExecuteReader(sql, args);
 
                 try
                 {
