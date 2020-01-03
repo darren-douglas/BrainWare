@@ -26,6 +26,7 @@
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
     <ApplicationInsightsResourceId>/subscriptions/2d4dc7b2-21d7-4398-9fa5-238684687c92/resourcegroups/Default-ApplicationInsights-EastUS/providers/microsoft.insights/components/Web</ApplicationInsightsResourceId>
+    <Use64BitIISExpress />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -161,7 +162,11 @@
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
     <Compile Include="Infrastructure\Database.cs" />
+    <Compile Include="Infrastructure\IStorage.cs" />
+    <Compile Include="Infrastructure\IOrderService.cs" />
     <Compile Include="Infrastructure\OrderService.cs" />
+    <Compile Include="Models\Product.cs" />
+    <Compile Include="Models\OrderProduct.cs" />
     <Compile Include="Models\Order.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

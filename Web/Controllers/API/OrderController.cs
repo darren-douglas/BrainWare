@@ -13,12 +13,17 @@ namespace Web.Controllers
 
     public class OrderController : ApiController
     {
+        private readonly IOrderService orderService;
+
+        public OrderController()
+        {
+            orderService = new OrderService();
+        }
+
         [HttpGet]
         public IEnumerable<Order> GetOrders(int id = 1)
         {
-            var data = new OrderService();
-
-            return data.GetOrdersForCompany(id);
+            return orderService.GetOrdersForCompany(id);
         }
     }
 }

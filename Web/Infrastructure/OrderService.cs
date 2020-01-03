@@ -3,15 +3,23 @@ using System.Collections.Generic;
 
 namespace Web.Infrastructure
 {
-    using System.Data;
     using Models;
     using System.Data.SqlClient;
 
-    public class OrderService
+    public class OrderService : IOrderService
     {
-        private const string DB_CONNECTION_STRING = "Data Source=(LocalDb)\\MSSQLLocalDB;Initial Catalog=BrainWAre;Integrated Security=SSPI;AttachDBFilename=e:\\BrainWare\\Web\\App_Data\\BrainWare.mdf";
+        private readonly IStorage _database;
 
-        public List<Order> GetOrdersForCompany(int CompanyId)
+        public OrderService(IStorage database)
+        {
+            _database = database;
+        }
+        public OrderService()
+        {
+            _database = new Database();
+        }
+
+        public IEnumerable<Order> GetOrdersForCompany(int CompanyId)
         {
             // These should be defined centraly to match the schema names for the columns
             const string COLUMN_ORDER_NAME = "name";
@@ -19,13 +27,8 @@ namespace Web.Infrastructure
             const string COLUMN_ORDER_ID = "order_id";
 
             var values = new List<Order>();
-            Database connection = new Database(DB_CONNECTION_STRING);
-
             try
             {
-                // Open the connection to the database.
-                connection.init();
-
                 // Get the orders
                 var args = new Dictionary<string, string>
                 {
@@ -33,52 +36,51 @@ namespace Web.Infrastructure
                 };
 
                 var sql = "SELECT c.name, o.description, o.order_id FROM company c INNER JOIN [order] o on c.company_id=o.company_id WHERE c.company_id = @name";
-                SqlDataReader reader = (SqlDataReader)connection.ExecuteReader(sql, args);
-
-                try
+                using (var reader = _database.ExecuteQuery(sql, args))
                 {
-                    // If we have results process them into an list of objects
-                    if (reader != null && reader.HasRows)
+                    try
                     {
-                        while (reader.Read())
+                        // If we have results process them into an list of objects
+                        if (reader != null)
                         {
-                            var order = new Order
+                            while (reader.Read())
                             {
-                                CompanyName = reader[COLUMN_ORDER_NAME].ToString(),
-                                Description = reader[COLUMN_ORDER_DESCRIPTION].ToString(),
-                                OrderId = (int)reader[COLUMN_ORDER_ID],
-                                OrderProducts = new List<OrderProduct>()
-                            };
+                                var order = new Order
+                                {
+                                    CompanyName = reader[COLUMN_ORDER_NAME].ToString(),
+                                    Description = reader[COLUMN_ORDER_DESCRIPTION].ToString(),
+                                    OrderId = (int)reader[COLUMN_ORDER_ID],
+                                    OrderProducts = new List<OrderProduct>()
+                                };
 
-                            // Load the order product details.
-                            order.OrderProducts = getOrderDetails(order.OrderId);
-
-                            // Calculate the total of the order
-                            order.OrderTotal = getOrderTotal(order.OrderProducts);
-
-                            values.Add(order);
+                                values.Add(order);
+                            }
                         }
                     }
-
-                }
-                finally
-                {
-                    // Close the reader
-                    if (!reader.IsClosed)
+                    finally
                     {
-                        reader.Close();
+                        // Close the reader
+                        if (!reader.IsClosed)
+                        {
+                            reader.Close();
+                        }
                     }
                 }
+
+                foreach(Order order in values)
+                {
+                    // Load the order product details.
+                    order.OrderProducts = getOrderDetails(order.OrderId);
+
+                    // Calculate the total of the order
+                    order.OrderTotal = getOrderTotal(order.OrderProducts);
+                }
+
             }
             catch (Exception ex)
             {
                 // Normally Log an error 
                 Console.Write("Exception caught - " + ex.Message);
-            }
-            finally
-            {
-                // Close the connection to the database
-                connection.uninit();
             }
 
             return values;
@@ -100,11 +102,8 @@ namespace Web.Infrastructure
 
             var orderProducts = new List<OrderProduct>();
 
-            Database connection = new Database(DB_CONNECTION_STRING);
             try
             {
-                // Open the connection to the database
-                connection.init();
 
                 // Create the SQL statement for the requested order id
                 var args = new Dictionary<string, string>
@@ -114,37 +113,39 @@ namespace Web.Infrastructure
 
                 var sql =
                     "SELECT op.price, op.order_id, op.product_id, op.quantity, p.name, p.price FROM orderproduct op INNER JOIN product p on op.product_id=p.product_id WHERE op.order_id = @" + COLUMN_ORDER_ID;
-                SqlDataReader reader = (SqlDataReader)connection.ExecuteReader(sql, args);
-
-                try
+                using (var reader = _database.ExecuteQuery(sql, args))
                 {
-                    // If there are results load them into a list of order product objects
-                    if (reader != null && reader.HasRows)
+                    try
                     {
-                        while (reader.Read())
+                        // If there are results load them into a list of order product objects
+                        if (reader != null)
                         {
-                            var orderProduct = new OrderProduct
+                            while (reader.Read())
                             {
-                                OrderId = (int)reader[COLUMN_ORDER_ID],
-                                ProductId = (int)reader[COLUMN_PRODUCT_ID],
-                                Quantity = (int)reader[COLUMN_QUANTITY],
-                                Product = new Product()
+                                var orderProduct = new OrderProduct
                                 {
-                                    Name = reader[COLUMN_PRODUCT_NAME].ToString(),
-                                    Price = (Decimal)reader[COLUMN_PRODUCT_PRICE]
-                                }
-                            };
+                                    OrderId = (int)reader[COLUMN_ORDER_ID],
+                                    ProductId = (int)reader[COLUMN_PRODUCT_ID],
+                                    Quantity = (int)reader[COLUMN_QUANTITY],
+                                    Price = (decimal)reader[COLUMN_PRODUCT_PRICE],
+                                    Product = new Product()
+                                    {
+                                        Name = reader[COLUMN_PRODUCT_NAME].ToString(),
+                                        Price = (Decimal)reader[COLUMN_PRODUCT_PRICE]
+                                    }
+                                };
 
-                            orderProducts.Add(orderProduct);
+                                orderProducts.Add(orderProduct);
+                            }
                         }
                     }
-                }
-                finally
-                {
-                    // Close the reader
-                    if (!reader.IsClosed)
+                    finally
                     {
-                        reader.Close();
+                        // Close the reader
+                        if (!reader.IsClosed)
+                        {
+                            reader.Close();
+                        }
                     }
                 }
             }
@@ -152,11 +153,6 @@ namespace Web.Infrastructure
             {
                 // Normally Log an error 
                 Console.Write("Exception caught - " + ex.Message);
-            }
-            finally
-            {
-                // Close the connection the database
-                connection.uninit();
             }
 
             return orderProducts;
